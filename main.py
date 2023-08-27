@@ -44,14 +44,14 @@ def load_config():
     return c
 
 
-def load_orders():
-    # Open config file
-    f = open("orders.txt", "r")
-
+def load_orders(file):
     orders = []
 
-    for line in f:
+    for line in file:
         items = line.split("\t")
+        if len(items) != 13:
+            print("Skip line:", line)
+            continue
 
         # handle open/close order
         if items[4] == '1' and items[5] == '0':
@@ -91,22 +91,19 @@ def load_orders():
 
         orders.append(Order(items[0], is_open, is_long, is_stm, items[10], items[11], cbr, line.strip("\n")))
 
-    # Close file
-    f.close()
-
     return orders
 
 
 def send_orders(cli, orders):
     mark_price_dict = {}
     for order in orders:
-        print("Sending order for: ", order.raw_req, "\n...")
+        print("Sending order for:", order.raw_req, "\n...")
 
         if order.symbol not in mark_price_dict:
             # get mark price
             mark_price = float(cli.mark_price(order.symbol)['markPrice'])
             mark_price_dict[order.symbol] = mark_price
-            print("Mark price ", order.symbol, ": ", mark_price)
+            print("Mark price", order.symbol, ": ", mark_price)
         else:
             mark_price = mark_price_dict.get(order.symbol)
 
@@ -243,6 +240,7 @@ def send_stm_order(cli, order, mark_price):
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
+    print("Initializing...")
     # Load config
     config = load_config()
     api_key = config["api_key"]
@@ -251,7 +249,11 @@ if __name__ == '__main__':
     config_logging(logging, logging.INFO)
     um_futures_client = UMFutures(key=api_key, secret=secret_key)
 
-    list_orders = load_orders()
+    # Load orders
+    f = open("orders.txt", "r")
+    list_orders = load_orders(f)
+    f.close()
+    print("Load orders successfully!")
 
     try:
         # Get account information
@@ -259,6 +261,7 @@ if __name__ == '__main__':
         account_info_txt = "Your account info:\nWalletBalance: {}\nUnrealizedPnL: {}"
         print(account_info_txt.format(account_info["totalWalletBalance"], account_info["totalUnrealizedProfit"]))
 
+        print("Start sending orders...")
         send_orders(um_futures_client, list_orders)
     except ClientError as error:
         logging.error(
