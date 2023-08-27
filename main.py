@@ -33,13 +33,13 @@ class Order:
 
 def load_config():
     # Open config file
-    f = open("config.json", "r")
+    file = open("config.json", "r")
 
     # returns JSON object as a dictionary
-    c = json.load(f)
+    c = json.load(file)
 
     # Close file
-    f.close()
+    file.close()
 
     return c
 
@@ -94,11 +94,21 @@ def load_orders(file):
     return orders
 
 
-def send_orders(cli, orders):
+def standardize_price(price: str, precision: int) -> str:
+    items = price.split(".")
+    if len(items) == 1:
+        return price
+
+    if len(items[1]) > precision:
+        return ".".join([items[0], items[1][0:2]])
+
+
+def send_orders(cli, orders, exchange_info_dict):
     mark_price_dict = {}
     for order in orders:
         print("Sending order for:", order.raw_req, "\n...")
 
+        # Prepare mark price
         if order.symbol not in mark_price_dict:
             # get mark price
             mark_price = float(cli.mark_price(order.symbol)['markPrice'])
@@ -106,6 +116,9 @@ def send_orders(cli, orders):
             print("Mark price", order.symbol, ": ", mark_price)
         else:
             mark_price = mark_price_dict.get(order.symbol)
+
+        # Prepare pair info
+        pair_info = exchange_info_dict[order.symbol]
 
         # order and position side
         trigger_price = float(order.price)
@@ -173,7 +186,7 @@ def send_orders(cli, orders):
                 type=ORDER_TYPE_STM,
                 quantity=order.size,
                 timeInForce="GTC",
-                stopPrice=order.price,
+                stopPrice=standardize_price(order.price, pair_info["pricePrecision"]),
                 recvWindow=DEFAULT_RECV_WINDOW
             )
         else:
@@ -184,7 +197,7 @@ def send_orders(cli, orders):
                 type=ORDER_TYPE_TS,
                 quantity=order.size,
                 timeInForce="GTC",
-                activationPrice=order.price,
+                activationPrice=standardize_price(order.price, pair_info["pricePrecision"]),
                 callbackRate=order.cbr
             )
         logging.debug(response)
@@ -238,6 +251,14 @@ def send_stm_order(cli, order, mark_price):
     logging.debug(response)
 
 
+def load_exchange_info(response):
+    exchange_info_dict = {}
+    for symbol in response["symbols"]:
+        exchange_info_dict[symbol["symbol"]] = symbol
+
+    return exchange_info_dict
+
+
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
     print("Initializing...")
@@ -261,8 +282,11 @@ if __name__ == '__main__':
         account_info_txt = "Your account info:\nWalletBalance: {}\nUnrealizedPnL: {}"
         print(account_info_txt.format(account_info["totalWalletBalance"], account_info["totalUnrealizedProfit"]))
 
+        exchange_info_response = um_futures_client.exchange_info()
+        exchange_info = load_exchange_info(exchange_info_response)
+
         print("Start sending orders...")
-        send_orders(um_futures_client, list_orders)
+        send_orders(um_futures_client, list_orders, exchange_info)
     except ClientError as error:
         logging.error(
             "Found error. status: {}, error code: {}, error message: {}".format(
