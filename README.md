@@ -13,7 +13,7 @@
 1. Sai template => tool sẽ thông báo sai ở dòng nào và bạn phải tự kiểm tra để fix
 2. IP chưa được whitelist=> vì tool chạy ở local và thường internet tại gia đình là IP động, nên sau một thời gian có thể bị thay đổi IP, tool sẽ có thông báo về IP không được whitelist, bạn cần thêm IP đó vào danh sách whitelist của API key mà bạn đang dùng.
 3. Sai giá trigger => lệnh STM và TS cần điều kiện giá để có thể tạo order lên hệ thống của Binance, khi chuẩn bị push lệnh tool sẽ tự động cập nhật giá hiện tại của mã bạn cần trade và kiểm tra, nếu sai sẽ thông báo dòng sai và bạn cần kiểm tra lại
-4. Các lỗi khác: Vui lòng liên hệ email: hoangnn3007@gmail.com hoặc Telegram: https://t.me/hoangnn3007 để được hỗ trợ nếu mình có thời gian.
+4. Các lỗi khác: Vui lòng liên hệ email: hoangnn3007@gmail.com hoặc Telegram: https://t.me/hoangnn3007 cùng với chụp màn hình thông tin lỗi và file orders.txt để được hỗ trợ.
 ## Buy me a coffee
 Tool này được phát hành để bạn dùng hoàn toàn miễn phí, trong trường hợp nó có thể giúp bạn và bạn kiếm lời được từ nó, bạn có thể gửi mình ly cà phê: Binance PayID: `556063974`
 ## Chúc bạn trade thành công ^^
