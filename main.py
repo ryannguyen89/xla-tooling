@@ -94,13 +94,41 @@ def load_orders(file):
     return orders
 
 
-def standardize_price(price: str, precision: int) -> str:
-    items = price.split(".")
+def standardize_precision(value: str, precision: int) -> str:
+    items = value.split(".")
     if len(items) == 1:
-        return price
+        return value
 
     if len(items[1]) > precision:
-        return ".".join([items[0], items[1][0:2]])
+        if precision <= 0:
+            return items[0]
+        else:
+            return ".".join([items[0], items[1][0:precision]])
+
+    return value
+
+
+def get_market_lot_size(pair_info: dict) -> dict:
+    for item in pair_info["filters"]:
+        if item["filterType"] == "MARKET_LOT_SIZE":
+            return item
+
+    return {}
+
+
+def standardize_vol(vol: str, pair_info: dict) -> str:
+    vol = standardize_precision(vol, pair_info["quantityPrecision"])
+    market_lot_size = get_market_lot_size(pair_info)
+    min_qty = market_lot_size["minQty"]
+    max_qty = market_lot_size["maxQty"]
+
+    if float(vol) < float(min_qty):
+        return min_qty
+
+    if float(vol) > float(max_qty):
+        return max_qty
+
+    return vol
 
 
 def send_orders(cli, orders, exchange_info_dict):
@@ -116,9 +144,6 @@ def send_orders(cli, orders, exchange_info_dict):
             print("Mark price", order.symbol, ": ", mark_price)
         else:
             mark_price = mark_price_dict.get(order.symbol)
-
-        # Prepare pair info
-        pair_info = exchange_info_dict[order.symbol]
 
         # order and position side
         trigger_price = float(order.price)
@@ -177,6 +202,15 @@ def send_orders(cli, orders, exchange_info_dict):
                 order_side = ORDER_SIDE_BUY
                 position_side = POSITION_SIZE_SHORT
 
+        # Prepare pair info
+        pair_info = exchange_info_dict[order.symbol]
+
+        # standardize trigger price
+        trigger_price_str = standardize_precision(order.price, pair_info["pricePrecision"])
+
+        # standardize vol
+        vol = standardize_vol(str(order.size), pair_info)
+
         # order type
         if order.is_stm:
             response = cli.new_order(
@@ -184,9 +218,9 @@ def send_orders(cli, orders, exchange_info_dict):
                 side=order_side,
                 positionSide=position_side,
                 type=ORDER_TYPE_STM,
-                quantity=order.size,
+                quantity=vol,
                 timeInForce="GTC",
-                stopPrice=standardize_price(order.price, pair_info["pricePrecision"]),
+                stopPrice=trigger_price_str,
                 recvWindow=DEFAULT_RECV_WINDOW
             )
         else:
@@ -195,9 +229,9 @@ def send_orders(cli, orders, exchange_info_dict):
                 side=order_side,
                 positionSide=position_side,
                 type=ORDER_TYPE_TS,
-                quantity=order.size,
+                quantity=vol,
                 timeInForce="GTC",
-                activationPrice=standardize_price(order.price, pair_info["pricePrecision"]),
+                activationPrice=trigger_price_str,
                 callbackRate=order.cbr
             )
         logging.debug(response)
