@@ -14,7 +14,7 @@ POSITION_SIZE_SHORT = "SHORT"
 
 ORDER_TYPE_STM = "STOP_MARKET"
 ORDER_TYPE_TS = "TRAILING_STOP_MARKET"
-
+ORDER_TYPE_TAKE_PROFIT_MARKET = "TAKE_PROFIT_MARKET"
 
 class Order:
     def __init__(self, symbol, is_open, is_long, is_stm, price, size, cbr, raw_req):
@@ -147,13 +147,12 @@ def send_orders(cli, orders, exchange_info_dict):
 
         # order and position side
         trigger_price = float(order.price)
+        order_type = ORDER_TYPE_STM
         if order.is_open:
             if order.is_long:
                 if order.is_stm:
                     if trigger_price < mark_price:
-                        txt = "Price {} must be larger than mark price {} to open order STM long"
-                        print(txt.format(order.price, mark_price))
-                        break
+                        order_type = ORDER_TYPE_TAKE_PROFIT_MARKET
                 else:
                     if trigger_price > mark_price:
                         txt = "Price {} must be lesser than mark price {} to open order TS long"
@@ -164,9 +163,7 @@ def send_orders(cli, orders, exchange_info_dict):
             else:
                 if order.is_stm:
                     if trigger_price > mark_price:
-                        txt = "Price {} must be lesser than mark price {} to open order STM short"
-                        print(txt.format(order.price, mark_price))
-                        break
+                        order_type = ORDER_TYPE_TAKE_PROFIT_MARKET
                 else:
                     if trigger_price < mark_price:
                         txt = "Price {} must be larger than mark price {} to open order TS short"
@@ -178,9 +175,7 @@ def send_orders(cli, orders, exchange_info_dict):
             if order.is_long:
                 if order.is_stm:
                     if trigger_price > mark_price:
-                        txt = "Price {} must be lesser than mark price {} to close STM long"
-                        print(txt.format(order.price, mark_price))
-                        break
+                        order_type = ORDER_TYPE_TAKE_PROFIT_MARKET
                 else:
                     if trigger_price < mark_price:
                         txt = "Price {} must be lesser than mark price {} to close TS long"
@@ -191,9 +186,7 @@ def send_orders(cli, orders, exchange_info_dict):
             else:
                 if order.is_stm:
                     if trigger_price < mark_price:
-                        txt = "Price {} must be larger than mark price {} to close STM short"
-                        print(txt.format(order.price, mark_price))
-                        break
+                        order_type = ORDER_TYPE_TAKE_PROFIT_MARKET
                 else:
                     if trigger_price > mark_price:
                         txt = "Price {} must be lesser than mark price {} to close TS short"
@@ -213,17 +206,19 @@ def send_orders(cli, orders, exchange_info_dict):
 
         # order type
         if order.is_stm:
+            print("OrderType:", order_type)
             response = cli.new_order(
                 symbol=order.symbol,
                 side=order_side,
                 positionSide=position_side,
-                type=ORDER_TYPE_STM,
+                type=order_type,
                 quantity=vol,
                 timeInForce="GTC",
                 stopPrice=trigger_price_str,
                 recvWindow=DEFAULT_RECV_WINDOW
             )
         else:
+            print("OrderType:", ORDER_TYPE_TS)
             response = cli.new_order(
                 symbol=order.symbol,
                 side=order_side,
